@@ -211,10 +211,9 @@ st.markdown("""
 class ResumeAnalyzer:
     def __init__(self):
         self.client = AzureOpenAI(
-            api_key='6CwE55InRG2OQa59XCrGSjqMX1RmvXDqrNoD4w2MiGWl7nUxUgxYJQQJ99BIAC77bzfXJ3w3AAAAACOGEovm',
-            api_version='2025-01-01-preview',
-            azure_endpoint='https://ltts-cariad-ddd-mvp-ai-foundry.cognitiveservices.azure.com/openai/deployments'
-                           '/gpt-4.1-mini/chat/completions?api-version=2025-01-01-preview'
+            api_key='2ba3acaa3aed450d849854da591b2a9d',
+            api_version='2023-05-15',
+            azure_endpoint='https://ltts-openai.openai.azure.com'
         )
 
     def extract_text_from_pdf(self, uploaded_file) -> str:
@@ -430,7 +429,7 @@ END OF REPORT
             """
 
             response = self.client.chat.completions.create(
-                model="gpt-4.1-mini",
+                model="gpt-4o-mini",
                 messages=[
                     {"role": "system",
                      "content": f"You are a senior HR analyst and {target_role} and recruitment expert with 15+ years of experience in "
@@ -456,6 +455,39 @@ END OF REPORT
                 st.error(f"⚠️ Unexpected error occurred: {e}")
                 return {"error": str(e)}
 
+
+# Helper to safely parse a score that may be int (e.g., 8) or str (e.g., "8/10" or "8")
+def _to_10_scale(value):
+    # If value is None, use 0
+    if value is None:
+        return "0"
+    # If already an int or float, clamp and return as int string
+    if isinstance(value, (int, float)):
+        # Optional: clamp to [0, 10]
+        v = max(0, min(10, int(value)))
+        return str(v)
+    # If it's a string, try to extract the first numeric part
+    s = str(value).strip()
+    # Handle formats like "8/10", "8 / 10", "8 of 10", "8 out of 10"
+    for sep in ["/", "of", "out of"]:
+        if sep in s:
+            # Take left part and strip spaces
+            left = s.split(sep)[0].strip()
+            if left.isdigit():
+                v = max(0, min(10, int(left)))
+                return str(v)
+    # Fall back: if whole string is a number like "8"
+    if s.isdigit():
+        v = max(0, min(10, int(s)))
+        return str(v)
+    # Last resort: try regex to find first integer in string
+    import re
+    m = re.search(r"\d+", s)
+    if m:
+        v = max(0, min(10, int(m.group(0))))
+        return str(v)
+    # Default
+    return "0"
 
 def main():
     # Header
@@ -644,14 +676,18 @@ def main():
                         scores = analysis_result["overall_score"]
 
                         col1, col2, col3 = st.columns(3)
+
                         with col1:
-                            tech_score = scores.get("technical_score", "0").split('/')[0]
+                            tech_score = str(scores.get("technical_score", "0")).split('/')[0]
                             st.metric("Technical Score", f"{tech_score}/10")
+
                         with col2:
-                            exp_score = scores.get("experience_score", "0").split('/')[0]
+                            exp_score = str(scores.get("experience_score", "0")).split('/')[0]
                             st.metric("Experience Score", f"{exp_score}/10")
+
                         with col3:
-                            overall_score = scores.get("overall_rating", "0").split('/')[0]
+                            overall_score = str(scores.get("overall_rating", "0")).split('/')[
+                                0]
                             st.metric("Overall Rating", f"{overall_score}/10")
 
                     # Strengths and Improvements
